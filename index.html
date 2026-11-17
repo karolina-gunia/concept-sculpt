@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concept Sculpt — Massing Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3f3f1; --panel:#fbfbfa; --ink:#171717; --mute:#8a8a86; --line:#e2e2de; --soft:#ececea;
+    --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace; --sans:'IBM Plex Sans',system-ui,-apple-system,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+  body{display:grid;grid-template-columns:minmax(0,1fr) 380px;height:100vh;height:100dvh;overflow:hidden}
+  .view{position:relative;height:100vh;height:100dvh;background:#f1f1ef;overflow:hidden}
+  canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+  canvas:active{cursor:grabbing}
+  .panel{height:100vh;height:100dvh;overflow-y:auto;background:var(--panel);border-left:1px solid var(--line);overscroll-behavior:contain}
+  @media (max-width:820px){
+    body{display:block;height:auto;overflow:auto}
+    .view{position:sticky;top:0;height:50vh;height:50dvh;z-index:5;border-bottom:1px solid var(--line)}
+    .panel{height:auto;border-left:0;overflow:visible}
+  }
+  /* overlay */
+  .tag{position:absolute;left:18px;bottom:16px;font:500 11px/1.5 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:#555;pointer-events:none;max-width:70%}
+  .tag b{display:block;color:var(--ink);font-weight:500;font-size:12px}
+  .hint{position:absolute;left:18px;top:14px;font:400 10.5px var(--mono);color:var(--mute);letter-spacing:.04em;pointer-events:none}
+  .vbtns{position:absolute;right:12px;top:12px;display:flex;gap:6px}
+  .ibtn{width:36px;height:36px;border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.85);backdrop-filter:blur(6px);display:grid;place-items:center;cursor:pointer;color:var(--ink);padding:0}
+  .ibtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+  .ibtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .err{position:absolute;inset:0;display:none;place-items:center;padding:30px;font:12px var(--mono);color:#a33;white-space:pre-wrap;background:#fff}
+  /* panel */
+  header{padding:22px 20px 14px;border-bottom:1px solid var(--line)}
+  h1{margin:0;font-size:17px;font-weight:600;letter-spacing:-.01em}
+  .sub{margin:3px 0 0;font-size:12.5px;color:var(--mute)}
+  .actions{display:flex;gap:6px;margin-top:14px;flex-wrap:wrap}
+  .btn{font:500 12.5px var(--sans);border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:8px 12px;cursor:pointer}
+  .btn:hover{border-color:#bdbdb8}
+  .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .btn.primary:hover{background:#333}
+  .presets{display:flex;flex-wrap:wrap;gap:6px;padding:12px 20px 14px;border-bottom:1px solid var(--line)}
+  .presets::-webkit-scrollbar{display:none}
+  .chip{flex:none;font:500 11.5px var(--sans);padding:6px 10px;border-radius:99px;border:1px solid var(--line);background:#fff;cursor:pointer;white-space:nowrap}
+  .chip:hover{border-color:#bdbdb8}
+  details{border-bottom:1px solid var(--line)}
+  summary{list-style:none;cursor:pointer;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase}
+  summary::-webkit-details-marker{display:none}
+  summary .cnt{color:var(--mute);font-weight:400;letter-spacing:.04em}
+  summary::after{content:'+';font:400 15px var(--mono);color:var(--mute);margin-left:10px}
+  details[open] summary::after{content:'–'}
+  .body{padding:2px 20px 16px}
+  .forms{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:14px}
+  .fbtn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 2px 6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font:500 9.5px var(--mono);color:#555;letter-spacing:.02em}
+  .fbtn svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.2;stroke-linejoin:round;stroke-linecap:round}
+  .fbtn.on{border-color:var(--ink);color:var(--ink);background:var(--soft)}
+  .row{padding:7px 0}
+  .row.hide{display:none}
+  .rl{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:6px}
+  .rl span:last-child{font:400 11.5px var(--mono);color:var(--mute)}
+  .row.sub-row{padding-left:12px;border-left:1px solid var(--line);margin-left:2px}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:20px;background:transparent;margin:0}
+  input[type=range]::-webkit-slider-runnable-track{height:2px;background:var(--line);border-radius:2px}
+  input[type=range]::-moz-range-track{height:2px;background:var(--line)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:#fff;border:1.5px solid var(--ink);margin-top:-6.5px}
+  input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:#fff;border:1.5px solid var(--ink)}
+  .tog{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:500;cursor:pointer;padding:4px 0}
+  .sw{width:34px;height:20px;border-radius:99px;background:#d9d9d5;position:relative;transition:.15s;flex:none}
+  .sw::after{content:'';position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+  .tog.on .sw{background:var(--ink)}
+  .tog.on .sw::after{left:16px}
+  .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}
+  .seg button{flex:1;border:0;background:transparent;font:500 11.5px var(--sans);padding:7px 4px;cursor:pointer;color:#555}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.on{background:var(--ink);color:#fff}
+  .note{font-size:11.5px;color:var(--mute);line-height:1.45;margin:2px 0 6px}
+  .book{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .thumb{position:relative;aspect-ratio:1;border:1px solid var(--line);border-radius:8px;overflow:hidden;cursor:pointer;background:#fff}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .thumb .x{position:absolute;right:3px;top:3px;width:20px;height:20px;border-radius:50%;border:0;background:rgba(255,255,255,.9);font:12px var(--mono);cursor:pointer;line-height:20px;padding:0}
+  footer{padding:16px 20px 40px;font-size:11px;color:var(--mute);line-height:1.5}
+  .modal{position:fixed;inset:0;background:rgba(20,20,20,.55);display:none;place-items:center;z-index:50;padding:20px}
+  .modal.show{display:grid}
+  .mcard{background:#fff;border-radius:12px;padding:14px;max-width:min(92vw,900px);max-height:92vh;display:flex;flex-direction:column;gap:10px}
+  .mcard img{max-width:100%;max-height:72vh;object-fit:contain;border-radius:6px;background:#f1f1ef}
+  .mcard .note{margin:0}
+  .mbtns{display:flex;gap:8px}
+  .mbtns .btn{flex:1}
+  .thumb .d{position:absolute;right:3px;bottom:3px;width:24px;height:24px;border-radius:50%;border:0;background:rgba(23,23,23,.85);color:#fff;font:13px var(--mono);cursor:pointer;line-height:24px;padding:0}
+  .dcard{width:min(94vw,980px);overflow-y:auto}
+  .dcard img{width:100%;max-height:62vh;border:1px solid var(--line);border-radius:6px;background:#fff}
+  .dbar{display:flex;gap:8px;flex-wrap:wrap}
+  .dbar .seg{flex:1;min-width:170px}
+  .drows .row{padding:4px 0}
+</style>
+</head>
+<body>
+<div class="view" id="view">
+  <canvas id="c"></canvas>
+  <div class="hint">DRAG ORBIT · PINCH / SCROLL ZOOM</div>
+  <div class="vbtns">
+    <button class="ibtn" id="bRot" title="Auto-rotate"><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg></button>
+    <button class="ibtn" id="bFit" title="Fit view"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    <button class="ibtn" id="bSave" title="Save to sketchbook"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg></button>
+    <button class="ibtn" id="bShot" title="Snapshot image"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+  </div>
+  <div class="tag" id="tag"></div>
+  <div class="err" id="err"></div>
+</div>
+
+<aside class="panel" id="panel">
+  <header>
+    <h1>Concept Sculpt</h1>
+    <p class="sub">Massing studies from basic forms: carve, split, stack and bend.</p>
+    <div class="actions">
+      <button class="btn primary" id="bInspire">✦ Inspire me</button>
+      <button class="btn" id="bReset">Reset</button>
+      <button class="btn" id="bPlan">Plan</button>
+      <button class="btn" id="bSec">Section</button>
+    </div>
+  </header>
+  <div class="presets" id="presets"></div>
+  <div id="controls"></div>
+  <details id="bookSec">
+    <summary>Sketchbook <span class="cnt" id="bookCnt"></span></summary>
+    <div class="body">
+      <p class="note">Saved studies stay in this browser. Tap one to load it, or ↓ to save it as a PNG.</p>
+      <div class="book" id="book"></div>
+    </div>
+  </details>
+  <footer>Shapes are signed-distance fields rendered in real time. Every operation can be combined, so try stacking a split on a scooped, hollowed form.</footer>
+</aside>
+
+<div class="modal" id="modal">
+  <div class="mcard">
+    <img id="shotImg" alt="Snapshot of the current massing study">
+    <p class="note">Long-press (phone) or right-click (desktop) the image to save it.</p>
+    <div class="mbtns"><button class="btn primary dl" id="mSave" hidden>Save PNG</button><button class="btn" id="mClose">Close</button></div>
+  </div>
+</div>
+
+<div class="modal" id="dmodal">
+  <div class="mcard dcard">
+    <div class="dbar">
+      <div class="seg" id="dMode"><button data-v="plan">Plan</button><button data-v="section">Section</button></div>
+      <div class="seg" id="dStyle"><button data-v="poche">Poché</button><button data-v="inverse">Inverse</button><button data-v="line">Line</button></div>
+    </div>
+    <img id="dImg" alt="Plan or section drawing of the current model">
+    <div class="drows">
+      <div class="row" id="rCut"><div class="rl"><span>Cut height above base</span><span id="vCut"></span></div><input type="range" id="iCut" step="0.1"></div>
+      <div class="row" id="rAng"><div class="rl"><span>Section direction</span><span id="vAng"></span></div><input type="range" id="iAng" min="0" max="180" step="1"></div>
+      <div class="row" id="rOff"><div class="rl"><span>Section position</span><span id="vOff"></span></div><input type="range" id="iOff" step="0.1"></div>
+    </div>
+    <p class="note">The plan marks the section line as A–A. Long-press (phone) or right-click (desktop) the drawing to save it.</p>
+    <div class="mbtns"><button class="btn primary dl" id="dSave" hidden>Save PNG</button><button class="btn" id="dClose">Close</button></div>
+  </div>
+</div>
+
+<script>
+// ───────────────────────────── shader ─────────────────────────────
+const FRAG = `
+precision highp float;
+uniform vec2 uRes;
+uniform vec3 uCamPos, uCamF, uCamR, uCamU;
+uniform float uOrtho, uZoom;
+uniform int uForm;
+uniform vec3 uSize;
+uniform float uRoof, uRound, uRing, uH;
+uniform float uTwist, uBend, uTaper, uShear;
+uniform float uScoopOn; uniform int uScoopShape; uniform float uScoopDepth, uScoopR, uScoopAng, uScoopPos;
+uniform float uHoleOn; uniform int uHoleShape; uniform float uHoleSize; uniform vec2 uHolePos;
+uniform float uShellOn, uShell, uTopCut, uWindows;
+uniform int uSection; uniform float uSectionAng;
+uniform float uCopyOn, uCopyAng, uCopyScale; uniform vec3 uCopyOff;
+uniform float uSplitOn, uSplitAng, uSplitShift, uSplitLift;
+uniform int uStack; uniform float uStackScale, uStackRot, uStackGap, uStackShift;
+uniform float uBlend, uSink, uPit, uLift;
+uniform int uCols; uniform float uColSp, uColTop, uField;
+uniform float uLines, uFigures, uBound, uBoundY, uStepK;
+uniform vec3 uFig0, uFig1, uFig2;
+uniform int uMode, uStyle;
+uniform float uPx, uCut, uSecAng, uSecOff, uDepth, uYmin, uYmax, uBand;
+uniform vec2 uDrawC, uSecFig;
+
+mat2 rot(float a){ float c=cos(a), s=sin(a); return mat2(c,-s,s,c); }
+float smin(float a, float b, float k){
+  if (k <= 0.0) return min(a,b);
+  float h = clamp(0.5 + 0.5*(b-a)/k, 0.0, 1.0);
+  return mix(b, a, h) - k*h*(1.0-h);
+}
+float sdBox(vec3 p, vec3 b, float r){ vec3 q = abs(p) - b + r; return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0) - r; }
+float sdBox2(vec2 p, vec2 b){ vec2 q = abs(p) - b; return length(max(q,0.0)) + min(max(q.x,q.y),0.0); }
+float extrude(float d2, float z, float h){ vec2 w = vec2(d2, abs(z) - h); return min(max(w.x,w.y),0.0) + length(max(w,0.0)); }
+float sdCap(vec3 p, vec3 a, vec3 b, float r){ vec3 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0); return length(pa-ba*h)-r; }
+
+float base(vec3 p){
+  float W = uSize.x*0.5, Hh = uSize.y, D = uSize.z*0.5;
+  float r = min(uRound, min(W,D)*0.9);
+  if (uForm == 0) return sdBox(p - vec3(0.0,Hh*0.5,0.0), vec3(W,Hh*0.5,D), min(r, Hh*0.45));
+  if (uForm == 1){
+    float R = uRoof;
+    float b = sdBox2(vec2(p.x, p.y - (Hh+R)*0.5), vec2(W, (Hh+R)*0.5));
+    vec2 n = normalize(vec2(R, W));
+    float pl = dot(vec2(abs(p.x), p.y) - vec2(0.0, Hh+R), n);
+    return extrude(max(b, pl), p.z, D);
+  }
+  if (uForm == 2){
+    float m = min(W,D);
+    vec2 d = vec2((length(p.xz/vec2(W,D)) - 1.0)*m, abs(p.y - Hh*0.5) - Hh*0.5);
+    return min(max(d.x,d.y),0.0) + length(max(d,0.0));
+  }
+  if (uForm == 3){
+    vec3 r3 = vec3(W, Hh*0.5, D); vec3 q = p - vec3(0.0, Hh*0.5, 0.0);
+    float k0 = length(q/r3); float k1 = length(q/(r3*r3));
+    return k0*(k0-1.0)/k1;
+  }
+  if (uForm == 4){
+    float sx = dot(vec2(abs(p.x), p.y) - vec2(W,0.0), normalize(vec2(Hh, W)));
+    float sz = dot(vec2(abs(p.z), p.y) - vec2(D,0.0), normalize(vec2(Hh, D)));
+    return max(max(sx,sz), -p.y);
+  }
+  if (uForm == 5){
+    float t = min(uRing, W*0.95);
+    vec2 d = vec2(abs(length(p.xz) - (W - t*0.5)) - t*0.5, abs(p.y - Hh*0.5) - Hh*0.5);
+    return min(max(d.x,d.y),0.0) + length(max(d,0.0));
+  }
+  if (uForm == 6) return sdBox(p - vec3(0.0, Hh - 0.4, 0.0), vec3(W, 0.4, D), min(r, 0.39));
+  if (uForm == 7){
+    float b = sdBox(p - vec3(0.0,Hh*0.5,0.0), vec3(W,Hh*0.5,D), 0.0);
+    float pl = dot(p.xy - vec2(-W, 0.0), normalize(vec2(-Hh, 2.0*W)));
+    return max(b, pl);
+  }
+  float b = sdBox2(vec2(p.x, p.y - Hh*0.5), vec2(W, Hh*0.5));
+  float c = length(vec2(p.x, p.y - Hh)) - W;
+  return extrude(max(min(b,c), -p.y), p.z, D);
+}
+
+float windows(vec3 p, float d){
+  float sp = 3.2, fl = 3.4;
+  bool fx = abs(p.z)*uSize.x > abs(p.x)*uSize.z;
+  float u = fx ? p.x : p.z;
+  float row = floor(p.y/fl);
+  float vy = p.y - row*fl - 1.9;
+  float uu = mod(u + sp*0.5, sp) - sp*0.5;
+  float w = sdBox2(vec2(uu, vy), vec2(0.5, 0.72));
+  w = max(w, p.y - (uSize.y - 0.7));
+  return max(w, -d - 0.35);
+}
+
+float shape(vec3 p){
+  vec3 p0 = p;
+  p.x -= uShear*p.y;
+  float hy = clamp(p.y/uH, 0.0, 1.0);
+  if (uTwist != 0.0) p.xz = rot(uTwist*hy)*p.xz;
+  if (uBend != 0.0) p.xy = rot(uBend*p.x)*p.xy;
+  float t = max(1.0 - uTaper*hy, 0.08);
+  p.xz /= t;
+  float d = base(p)*t;
+  if (uShellOn > 0.5) d = max(d, -(d + uShell));
+  if (uWindows > 0.5) d = max(d, -windows(p0, d));
+  if (uScoopOn > 0.5){
+    vec2 dir = vec2(cos(uScoopAng), sin(uScoopAng));
+    float across = dot(p0.xz, vec2(-dir.y, dir.x)) - uScoopPos;
+    float along = dot(p0.xz, dir);
+    float cy = uH + uScoopR - uScoopDepth;
+    float sc = (uScoopShape == 0) ? length(vec2(across, p0.y - cy)) - uScoopR
+                                  : length(vec3(across, p0.y - cy, along)) - uScoopR;
+    d = max(d, -sc);
+  }
+  if (uHoleOn > 0.5){
+    vec2 q = p0.xz - uHolePos; float hd;
+    if (uHoleShape == 0) hd = length(q) - uHoleSize;
+    else if (uHoleShape == 1) hd = sdBox2(q, vec2(uHoleSize));
+    else hd = sdBox2(rot(0.7853982)*q, vec2(uHoleSize));
+    d = max(d, -hd);
+  }
+  if (uTopCut < 0.999) d = max(d, p0.y - uTopCut*uH);
+  return d;
+}
+
+float objCore(vec3 p){
+  float d = shape(p);
+  if (uCopyOn > 0.5){
+    vec3 q = p - uCopyOff; q.xz = rot(uCopyAng)*q.xz;
+    d = smin(d, shape(q/uCopyScale)*uCopyScale, uBlend);
+  }
+  return d;
+}
+float objSplit(vec3 p){
+  if (uSplitOn < 0.5) return objCore(p);
+  vec2 n = vec2(cos(uSplitAng), sin(uSplitAng));
+  vec2 tg = vec2(-n.y, n.x);
+  vec3 off = vec3(tg.x*uSplitShift, uSplitLift, tg.y*uSplitShift);
+  float a = max(objCore(p), dot(p.xz, n));
+  vec3 q = p - off;
+  float b = max(objCore(q), -dot(q.xz, n));
+  return min(a, b);
+}
+float obj(vec3 p){
+  p.y += uSink - uLift;
+  float d = 1e5, s = 1.0, y = 0.0;
+  for (int i = 0; i < 6; i++){
+    if (i >= uStack) break;
+    vec3 q = p; q.y -= y; q.x -= float(i)*uStackShift;
+    q.xz = rot(float(i)*uStackRot)*q.xz;
+    d = smin(d, objSplit(q/s)*s, uBlend);
+    y += uH*s*uStackGap; s *= uStackScale;
+  }
+  if (uSection > 0){
+    vec2 q = rot(uSectionAng)*p.xz;
+    d = (uSection == 1) ? max(d, q.x) : max(d, min(q.x, q.y));
+  }
+  return d;
+}
+float figure(vec3 p){
+  float b = length(p.xz);
+  if (b > 1.2 || p.y > 2.2) return max(b - 0.6, p.y - 1.9);
+  vec3 m = vec3(abs(p.x), p.y, p.z);
+  float body = sdCap(p, vec3(0.0,0.98,0.0), vec3(0.0,1.42,0.0), 0.17);
+  float legs = sdCap(m, vec3(0.08,0.06,0.0), vec3(0.09,0.92,0.0), 0.075);
+  float arms = sdCap(m, vec3(0.22,1.4,0.0), vec3(0.25,0.86,0.02), 0.05);
+  float head = length(p - vec3(0.0,1.65,0.0)) - 0.11;
+  return min(min(body,legs), min(arms,head));
+}
+float cols(vec3 p){
+  if (uCols == 0) return 1e5;
+  vec2 q = mod(p.xz + 0.5*uColSp, uColSp) - 0.5*uColSp;
+  float c = length(q) - 0.13;
+  if (uCols == 1){
+    c = max(c, p.y - (uLift - uSink + uColTop));
+    c = max(c, sdBox2(p.xz, vec2(uSize.x*0.5 - 0.45, uSize.z*0.5 - 0.45)));
+  } else {
+    c = max(c, p.y - (uLift + uH + 3.0));
+    c = max(c, length(p.xz) - uField);
+  }
+  return max(c, -(p.y + uSink));
+}
+vec3 map(vec3 p){
+  float bd = length(p - vec3(0.0, uBoundY, 0.0)) - uBound;
+  float o = (bd > 1.0) ? bd : obj(p);
+  vec3 res = vec3(o, 1.0, bd > 1.0 ? 1.0 : 0.0);
+  float g = p.y;
+  if (uSink > 0.0 && uPit > 0.0 && bd < uPit + 1.0){
+    float f = obj(vec3(p.x, 0.25 - uSink + uLift, p.z)) - uPit;
+    float pit = max(f, -(p.y - (uLift - uSink)));
+    g = max(g, -pit);
+  }
+  if (g < res.x) res = vec3(g, 0.0, 0.0);
+  if (uCols > 0){ float c = cols(p); if (c < res.x) res = vec3(c, 1.0, 0.0); }
+  if (uFigures > 0.5){
+    float f = min(figure(p - uFig0), min(figure(p - uFig1), figure(p - uFig2)));
+    if (f < res.x) res = vec3(f, 2.0, f > 0.5 ? 1.0 : 0.0);
+  }
+  return res;
+}
+vec3 calcNormal(vec3 p){
+  const vec2 e = vec2(1.0,-1.0)*0.0025;
+  return normalize(e.xyy*map(p+e.xyy).x + e.yyx*map(p+e.yyx).x + e.yxy*map(p+e.yxy).x + e.xxx*map(p+e.xxx).x);
+}
+float softShadow(vec3 ro, vec3 rd){
+  float res = 1.0, t = 0.05;
+  for (int i = 0; i < 48; i++){
+    vec3 m = map(ro + rd*t); float h = m.x;
+    if (m.z < 0.5) res = min(res, 7.0*h/t);
+    t += clamp(h, 0.06, 2.5);
+    if (res < 0.002 || t > 90.0) break;
+  }
+  res = clamp(res, 0.0, 1.0);
+  return res*res*(3.0 - 2.0*res);
+}
+float calcAO(vec3 p, vec3 n){
+  float o = 0.0, s = 1.0;
+  for (int i = 0; i < 5; i++){
+    float h = 0.06 + 1.7*float(i)/4.0;
+    vec3 m = map(p + n*h); float d = m.z > 0.5 ? max(m.x, h) : m.x;
+    o += (h - d)*s; s *= 0.72;
+  }
+  return clamp(1.0 - 0.55*o, 0.0, 1.0);
+}
+float solid(vec3 p){
+  float bd = length(p - vec3(0.0, uBoundY, 0.0)) - uBound;
+  float d = (bd > 1.0) ? bd : obj(p);
+  return min(d, cols(p));
+}
+float pitD(vec3 p){
+  if (uSink <= 0.0 || uPit <= 0.0) return 1e5;
+  float f = obj(vec3(p.x, 0.25 - uSink + uLift, p.z)) - uPit;
+  return max(f, -(p.y - (uLift - uSink)));
+}
+vec3 drawing(){
+  vec2 w = uDrawC + (gl_FragCoord.xy - 0.5*uRes)*uPx;
+  float px = uPx;
+  float cut, sil = 1e5, gnd = 1e5, fig = 1e5, extra = 1e5;
+  if (uMode == 1){
+    vec3 p = vec3(w.x, uCut, -w.y);
+    cut = solid(p);
+    for (int i = 0; i < 14; i++){
+      float y = mix(uYmin, uYmax, (float(i) + 0.5)/14.0);
+      sil = min(sil, solid(vec3(p.x, y, p.z)));
+    }
+    if (uSink > 0.0 && uPit > 0.0) extra = obj(vec3(p.x, 0.25 - uSink + uLift, p.z)) - uPit;
+  } else {
+    vec2 t = vec2(cos(uSecAng), sin(uSecAng)); vec2 nr = vec2(-t.y, t.x);
+    vec2 xz = t*w.x + nr*uSecOff;
+    vec3 p = vec3(xz.x, w.y, xz.y);
+    cut = solid(p);
+    for (int k = 0; k < 18; k++){
+      vec2 q = t*w.x + nr*(uSecOff + uDepth*(float(k) + 1.0)/18.0);
+      sil = min(sil, solid(vec3(q.x, w.y, q.y)));
+    }
+    gnd = max(w.y, -(w.y + uBand));
+    gnd = max(gnd, -pitD(p));
+    if (uFigures > 0.5) fig = min(figure(vec3(w.x - uSecFig.x, w.y, 0.0)), figure(vec3(w.x - uSecFig.y, w.y, 0.0)));
+  }
+  float outside = smoothstep(-0.5*px, 0.5*px, cut);
+  float fillC = 1.0 - outside;
+  float edgeC = 1.0 - smoothstep(0.5*px, 1.4*px, abs(cut));
+  float silL = (1.0 - smoothstep(0.25*px, 0.95*px, abs(sil)))*outside;
+  float exL = (1.0 - smoothstep(0.25*px, 0.95*px, abs(extra)))*outside;
+  float gF = (1.0 - smoothstep(-0.5*px, 0.5*px, gnd))*outside;
+  float gE = (1.0 - smoothstep(0.6*px, 1.6*px, abs(gnd)))*outside;
+  float hatch = step(fract((gl_FragCoord.x + gl_FragCoord.y)/(uRes.y*0.011)), 0.16);
+  float figF = 1.0 - smoothstep(-0.5*px, 0.5*px, fig);
+  float ink;
+  if (uStyle == 2) ink = max(max(edgeC, silL*0.8), max(max(gE, gF*hatch*0.7), max(exL*0.8, figF*0.6)));
+  else ink = max(max(fillC, silL*0.75), max(max(gE, gF*hatch*0.85), max(exL*0.75, figF*0.55)));
+  ink = clamp(ink, 0.0, 1.0);
+  return (uStyle == 1) ? mix(vec3(0.09), vec3(0.96), ink) : mix(vec3(1.0), vec3(0.09), ink);
+}
+float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)))*43758.5453); }
+
+void main(){
+  if (uMode > 0){ gl_FragColor = vec4(drawing(), 1.0); return; }
+  vec2 uv = (gl_FragCoord.xy - 0.5*uRes)/uRes.y;
+  vec3 ro, rd;
+  if (uOrtho > 0.5){ ro = uCamPos + (uCamR*uv.x + uCamU*uv.y)*uZoom; rd = uCamF; }
+  else { ro = uCamPos; rd = normalize(uCamF*1.8 + uCamR*uv.x + uCamU*uv.y); }
+  vec3 L = normalize(vec3(-0.55, 0.85, 0.4));
+  float sunI = 0.6, ambI = 1.0;
+  float gAlb = 0.86;
+  float bgv = gAlb*(sunI*L.y + ambI + 0.12);
+  float k = 0.95/bgv;
+  vec3 col = vec3(0.95);
+  float t = 0.0; vec3 h = vec3(0.0); bool hit = false;
+  for (int i = 0; i < 220; i++){
+    h = map(ro + rd*t);
+    if (h.x < 0.0015*(1.0 + t*0.03)){ hit = true; break; }
+    t += h.x*uStepK;
+    if (t > 700.0) break;
+  }
+  if (hit){
+    vec3 pos = ro + rd*t;
+    vec3 n = calcNormal(pos);
+    float sh = softShadow(pos + n*0.02, L);
+    float ao = calcAO(pos, n);
+    float dif = clamp(dot(n, L), 0.0, 1.0)*sh;
+    float amb = 0.75 + 0.25*n.y;
+    float alb = h.y < 0.5 ? gAlb : (h.y < 1.5 ? 0.85 : 0.4);
+    float bounce = 0.08*clamp(-n.y, 0.0, 1.0);
+    float c = alb*(sunI*dif + ambI*amb*ao + 0.12*ao) + bounce;
+    if (uLines > 0.5 && h.y > 0.5 && h.y < 1.5 && n.y > 0.22 && n.y < 0.985){
+      float coord = abs(n.x) > abs(n.z) ? pos.z : pos.x;
+      float px = (uOrtho > 0.5 ? uZoom : t/1.8)/uRes.y;
+      float f = fract(coord/0.55); f = min(f, 1.0 - f);
+      float line = 1.0 - smoothstep(0.0, max(px*1.2, 0.02)/0.55, f);
+      c *= 1.0 - 0.09*line*(1.0 - smoothstep(0.08, 0.2, px));
+    }
+    c *= k;
+    c = pow(clamp(c, 0.0, 1.2), 0.65);
+    col = vec3(c);
+    float rr = length(pos.xz);
+    col = mix(col, vec3(0.95), smoothstep(uBound*1.4, uBound*5.0, rr));
+  }
+  col += (hash(gl_FragCoord.xy) - 0.5)*0.018;
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+// ───────────────────────────── state ─────────────────────────────
+const FORMS = [
+  ['box','Box','M4 8 L12 4 L20 8 L20 16 L12 20 L4 16 Z M4 8 L12 12 L20 8 M12 12 L12 20'],
+  ['gable','Gable','M3 20 V11 L8 6 L21 9 V18 L16 21 Z M3 11 L16 14 L21 9 M16 14 V21 M8 6 L16 14'],
+  ['vault','Vault','M4 20 V12 a6 6 0 0 1 12 0 V20 Z M10 6 a6 6 0 0 1 10 3 V16 L16 20 M16 12 L20 9'],
+  ['cylinder','Cylinder','M5 7 a7 3 0 1 0 14 0 a7 3 0 1 0 -14 0 M5 7 V17 a7 3 0 0 0 14 0 V7'],
+  ['sphere','Sphere','M4 12 a8 8 0 1 0 16 0 a8 8 0 1 0 -16 0 M4 12 a8 3 0 0 0 16 0'],
+  ['pyramid','Pyramid','M12 3 L21 16 L12 21 L3 16 Z M12 3 L12 21'],
+  ['ring','Ring','M3 10 a9 4 0 1 0 18 0 a9 4 0 1 0 -18 0 M8 10 a4 1.6 0 1 0 8 0 a4 1.6 0 1 0 -8 0 M3 10 V14 a9 4 0 0 0 18 0 V10'],
+  ['plate','Plate','M2 11 L12 7 L22 11 L12 15 Z M2 11 V12.5 L12 16.5 L22 12.5 V11 M6 14 V20 M18 14 V20 M12 16.5 V22'],
+  ['wedge','Wedge','M3 18 L14 21 L21 17 L21 5 Z M14 21 L21 5'],
+];
+const FORM_ID = {box:0,gable:1,cylinder:2,sphere:3,pyramid:4,ring:5,plate:6,wedge:7,vault:8};
+
+const DEFAULTS = {
+  form:'gable', width:10, depth:26, height:5, roof:4, round:0, ring:4,
+  twist:0, bend:0, taper:0, shear:0,
+  scoop:true, scoopShape:'cyl', scoopDepth:6.5, scoopR:10, scoopAng:0, scoopPos:0,
+  hole:false, holeShape:'circle', holeSize:3, holeX:0, holeZ:0,
+  shell:false, shellT:0.5, topCut:100, windows:true,
+  section:'none', sectionAng:0,
+  copy:false, copyAng:90, copyX:0, copyY:0, copyZ:0, copyScale:1,
+  split:false, splitAng:20, splitShift:3, splitLift:0,
+  stack:1, stackScale:0.8, stackRot:0, stackGap:1, stackShift:0,
+  blend:0,
+  sink:0, pit:0, lift:0, cols:'off', colSp:4,
+  ortho:true, lines:true, figures:true, quality:'normal'
+};
+let S = {...DEFAULTS};
+
+const PRESETS = [
+  ['Scooped gable', {}],
+  ['Crossed roofs', {scoop:false, depth:22, copy:true, copyAng:90, copyZ:-4, copyX:6, windows:true}],
+  ['Bowl courtyard', {depth:22, width:14, scoopShape:'sph', scoopDepth:6.5, scoopR:9, hole:true, holeSize:2, windows:false, holeX:0, holeZ:0}],
+  ['Sunken pitch', {scoop:false, windows:false, width:16, depth:16, form:'pyramid', height:6, sink:3, pit:3, hole:true, holeShape:'square', holeSize:3.2, holeX:2.5, holeZ:2.5}],
+  ['Fault line', {scoop:false, depth:28, split:true, splitAng:28, splitShift:4.5, splitLift:0, windows:true}],
+  ['Stilt plate', {form:'plate', scoop:false, windows:false, width:22, depth:20, height:7, hole:true, holeShape:'square', holeSize:2.6, holeX:-4, holeZ:3, cols:'field', colSp:7, bend:1.2}],
+  ['Spiral rings', {form:'ring', scoop:false, windows:false, width:16, ring:4, height:2.4, stack:5, stackScale:0.88, stackRot:0, stackGap:1, stackShift:1.2, section:'quarter', sectionAng:-30}],
+  ['Hollow cut', {form:'box', scoop:false, windows:true, width:14, depth:10, height:9, shell:true, shellT:0.45, section:'quarter', sectionAng:10, topCut:100}],
+  ['Twisted slab', {form:'box', scoop:false, windows:false, width:14, depth:6, height:30, twist:110, round:1}],
+  ['Soft fold', {form:'gable', scoop:false, windows:false, width:8, depth:18, height:7, roof:5, copy:true, copyAng:35, copyX:2, copyZ:4, copyScale:0.85, blend:2.2, shear:0.25}],
+];
+
+// ───────────────────────────── UI schema ─────────────────────────────
+const isForm = (...f) => s => f.includes(s.form);
+const SECTIONS = [
+  {t:'Base form', open:true, items:[
+    {type:'forms'},
+    {k:'width', l:'Width', min:2, max:60, step:0.5, u:'m'},
+    {k:'depth', l:'Depth', min:2, max:60, step:0.5, u:'m', show:s=>s.form!=='ring'},
+    {k:'height', l:'Height', min:1, max:60, step:0.5, u:'m'},
+    {k:'roof', l:'Roof rise', min:0.5, max:20, step:0.5, u:'m', show:isForm('gable')},
+    {k:'ring', l:'Ring band', min:0.5, max:15, step:0.5, u:'m', show:isForm('ring')},
+    {k:'round', l:'Edge rounding', min:0, max:5, step:0.1, u:'m', show:isForm('box','plate')},
+  ]},
+  {t:'Deform', items:[
+    {k:'twist', l:'Twist', min:-360, max:360, step:1, u:'°'},
+    {k:'bend', l:'Bend', min:-6, max:6, step:0.1, u:''},
+    {k:'taper', l:'Taper', min:0, max:0.95, step:0.01, u:'%', fmt:v=>Math.round(v*100)},
+    {k:'shear', l:'Lean', min:-1.5, max:1.5, step:0.01, u:''},
+  ]},
+  {t:'Carve', items:[
+    {k:'scoop', l:'Curved scoop', type:'toggle'},
+    {k:'scoopShape', l:'Scoop shape', type:'seg', opts:[['cyl','Barrel'],['sph','Bowl']], dep:'scoop'},
+    {k:'scoopDepth', l:'Depth', min:0, max:40, step:0.1, u:'m', dep:'scoop'},
+    {k:'scoopR', l:'Radius', min:1, max:60, step:0.5, u:'m', dep:'scoop'},
+    {k:'scoopAng', l:'Direction', min:0, max:180, step:1, u:'°', dep:'scoop'},
+    {k:'scoopPos', l:'Offset', min:-30, max:30, step:0.1, u:'m', dep:'scoop'},
+    {k:'hole', l:'Courtyard void', type:'toggle'},
+    {k:'holeShape', l:'Void shape', type:'seg', opts:[['circle','Circle'],['square','Square'],['diamond','Diamond']], dep:'hole'},
+    {k:'holeSize', l:'Size', min:0.5, max:20, step:0.1, u:'m', dep:'hole'},
+    {k:'holeX', l:'Position X', min:-25, max:25, step:0.1, u:'m', dep:'hole'},
+    {k:'holeZ', l:'Position Z', min:-25, max:25, step:0.1, u:'m', dep:'hole'},
+    {k:'section', l:'Section cut', type:'seg', opts:[['none','None'],['half','Half'],['quarter','Quarter']]},
+    {k:'sectionAng', l:'Cut angle', min:-180, max:180, step:1, u:'°', show:s=>s.section!=='none'},
+    {k:'topCut', l:'Slice height', min:5, max:100, step:1, u:'%'},
+  ]},
+  {t:'Shell & openings', items:[
+    {k:'shell', l:'Hollow shell', type:'toggle'},
+    {k:'shellT', l:'Wall thickness', min:0.15, max:3, step:0.05, u:'m', dep:'shell'},
+    {type:'note', text:'Pair the shell with a scoop, section cut or slice to see inside.', dep:'shell'},
+    {k:'windows', l:'Window punctures', type:'toggle'},
+  ]},
+  {t:'Combine', items:[
+    {k:'copy', l:'Duplicate & rotate', type:'toggle'},
+    {k:'copyAng', l:'Rotation', min:-180, max:180, step:1, u:'°', dep:'copy'},
+    {k:'copyX', l:'Offset X', min:-30, max:30, step:0.1, u:'m', dep:'copy'},
+    {k:'copyZ', l:'Offset Z', min:-30, max:30, step:0.1, u:'m', dep:'copy'},
+    {k:'copyY', l:'Offset Y', min:-15, max:15, step:0.1, u:'m', dep:'copy'},
+    {k:'copyScale', l:'Scale', min:0.3, max:1.5, step:0.01, u:'×', dep:'copy'},
+    {k:'split', l:'Split & shift', type:'toggle'},
+    {k:'splitAng', l:'Fault angle', min:0, max:180, step:1, u:'°', dep:'split'},
+    {k:'splitShift', l:'Slide', min:-15, max:15, step:0.1, u:'m', dep:'split'},
+    {k:'splitLift', l:'Lift', min:-8, max:8, step:0.1, u:'m', dep:'split'},
+    {k:'stack', l:'Stack levels', min:1, max:6, step:1, u:''},
+    {k:'stackScale', l:'Level scale', min:0.4, max:1.2, step:0.01, u:'×', show:s=>s.stack>1},
+    {k:'stackRot', l:'Level rotation', min:-90, max:90, step:1, u:'°', show:s=>s.stack>1},
+    {k:'stackGap', l:'Level spacing', min:0, max:1.5, step:0.01, u:'×', show:s=>s.stack>1},
+    {k:'stackShift', l:'Level shift', min:-8, max:8, step:0.1, u:'m', show:s=>s.stack>1},
+    {k:'blend', l:'Soft blend', min:0, max:6, step:0.1, u:'m'},
+  ]},
+  {t:'Ground', items:[
+    {k:'sink', l:'Sink into ground', min:0, max:30, step:0.1, u:'m'},
+    {k:'pit', l:'Pit margin', min:0, max:10, step:0.1, u:'m', show:s=>s.sink>0},
+    {k:'lift', l:'Lift off ground', min:0, max:15, step:0.1, u:'m'},
+    {k:'cols', l:'Columns', type:'seg', opts:[['off','Off'],['under','Under'],['field','Field']]},
+    {k:'colSp', l:'Column spacing', min:1.5, max:12, step:0.1, u:'m', show:s=>s.cols!=='off'},
+  ]},
+  {t:'Display', items:[
+    {k:'ortho', l:'Axonometric view', type:'toggle'},
+    {k:'lines', l:'Roof cladding lines', type:'toggle'},
+    {k:'figures', l:'Scale figures', type:'toggle'},
+    {k:'quality', l:'Render quality', type:'seg', opts:[['draft','Draft'],['normal','Normal'],['fine','Fine']]},
+  ]},
+];
+
+// ───────────────────────────── build panel ─────────────────────────────
+const $ = id => document.getElementById(id);
+const rowsByKey = {};
+const ctrlEls = [];
+function fmtVal(it, v){
+  if (it.fmt) return it.fmt(v) + (it.u ? ' ' + it.u : '');
+  const dec = it.step < 0.1 ? 2 : it.step < 1 ? 1 : 0;
+  return (+v).toFixed(dec) + (it.u ? ' ' + it.u : '');
+}
+function buildPanel(){
+  const root = $('controls');
+  SECTIONS.forEach(sec => {
+    const det = document.createElement('details');
+    if (sec.open) det.open = true;
+    det.innerHTML = `<summary>${sec.t}</summary>`;
+    const body = document.createElement('div'); body.className = 'body';
+    sec.items.forEach(it => {
+      let el;
+      if (it.type === 'forms'){
+        el = document.createElement('div'); el.className = 'forms';
+        FORMS.forEach(([id, name, path]) => {
+          const b = document.createElement('button'); b.className = 'fbtn'; b.dataset.form = id;
+          b.innerHTML = `<svg viewBox="0 0 24 24"><path d="${path}"/></svg>${name}`;
+          b.onclick = () => { S.form = id; onChange(true); };
+          el.appendChild(b);
+        });
+        it.sync = () => el.querySelectorAll('.fbtn').forEach(b => b.classList.toggle('on', b.dataset.form === S.form));
+      } else if (it.type === 'note'){
+        el = document.createElement('p'); el.className = 'note'; el.textContent = it.text;
+      } else if (it.type === 'toggle'){
+        el = document.createElement('div'); el.className = 'row';
+        el.innerHTML = `<div class="tog"><span>${it.l}</span><span class="sw"></span></div>`;
+        const tg = el.firstChild;
+        tg.onclick = () => { S[it.k] = !S[it.k]; onChange(true); };
+        it.sync = () => tg.classList.toggle('on', !!S[it.k]);
+      } else if (it.type === 'seg'){
+        el = document.createElement('div'); el.className = 'row';
+        el.innerHTML = `<div class="rl"><span>${it.l}</span></div><div class="seg">${it.opts.map(o=>`<button data-v="${o[0]}">${o[1]}</button>`).join('')}</div>`;
+        el.querySelectorAll('button').forEach(b => b.onclick = () => { S[it.k] = b.dataset.v; onChange(true); });
+        it.sync = () => el.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === S[it.k]));
+      } else {
+        el = document.createElement('div'); el.className = 'row';
+        el.innerHTML = `<div class="rl"><span>${it.l}</span><span></span></div><input type="range" min="${it.min}" max="${it.max}" step="${it.step}">`;
+        const inp = el.querySelector('input'), out = el.querySelector('.rl span:last-child');
+        inp.addEventListener('input', () => { S[it.k] = parseFloat(inp.value); out.textContent = fmtVal(it, S[it.k]); interacting(); onChange(false); });
+        inp.addEventListener('dblclick', () => { S[it.k] = DEFAULTS[it.k]; onChange(true); });
+        it.sync = () => { inp.value = S[it.k]; out.textContent = fmtVal(it, S[it.k]); };
+      }
+      if (it.dep) el.classList.add('sub-row');
+      it.el = el; ctrlEls.push(it);
+      body.appendChild(el);
+    });
+    det.appendChild(body);
+    root.appendChild(det);
+  });
+  const pr = $('presets');
+  PRESETS.forEach(([name, o]) => {
+    const c = document.createElement('button'); c.className = 'chip'; c.textContent = name;
+    c.onclick = () => { S = {...DEFAULTS, ...o, ortho:S.ortho, lines:S.lines, figures:S.figures, quality:S.quality}; onChange(true); fit(); };
+    pr.appendChild(c);
+  });
+}
+function syncPanel(){
+  ctrlEls.forEach(it => {
+    if (it.sync) it.sync();
+    let vis = true;
+    if (it.show && !it.show(S)) vis = false;
+    if (it.dep && !S[it.dep]) vis = false;
+    it.el.classList.toggle('hide', !vis);
+    if (it.type === 'note') it.el.style.display = vis ? '' : 'none';
+  });
+  $('tag').innerHTML = recipe();
+}
+function recipe(){
+  const name = FORMS.find(f => f[0] === S.form)[1];
+  const ops = [];
+  if (Math.abs(S.twist) > 0) ops.push('twist');
+  if (Math.abs(S.bend) > 0) ops.push('bend');
+  if (S.taper > 0) ops.push('taper');
+  if (Math.abs(S.shear) > 0) ops.push('lean');
+  if (S.scoop) ops.push(S.scoopShape === 'cyl' ? 'barrel scoop' : 'bowl scoop');
+  if (S.hole) ops.push(S.holeShape + ' void');
+  if (S.shell) ops.push('shell');
+  if (S.section !== 'none') ops.push(S.section + ' section');
+  if (S.topCut < 100) ops.push('sliced');
+  if (S.copy) ops.push('duplicate');
+  if (S.split) ops.push('split');
+  if (S.stack > 1) ops.push('stack ×' + S.stack);
+  if (S.blend > 0) ops.push('soft');
+  if (S.sink > 0) ops.push('sunken');
+  if (S.lift > 0) ops.push('lifted');
+  if (S.cols !== 'off') ops.push('columns');
+  return `<b>${name}</b>${ops.join(' · ') || 'primitive'}`;
+}
+
+// ───────────────────────────── WebGL ─────────────────────────────
+const canvas = $('c');
+const gl = canvas.getContext('webgl', {preserveDrawingBuffer:true, antialias:false, powerPreference:'high-performance'});
+let prog, locs = {};
+function showErr(msg){ const e = $('err'); e.style.display = 'grid'; e.textContent = msg; }
+function initGL(){
+  if (!gl){ showErr('WebGL is not available in this browser.'); return false; }
+  const vs = gl.createShader(gl.VERTEX_SHADER);
+  gl.shaderSource(vs, 'attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}');
+  gl.compileShader(vs);
+  const fs = gl.createShader(gl.FRAGMENT_SHADER);
+  gl.shaderSource(fs, FRAG); gl.compileShader(fs);
+  if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)){ showErr('Shader error:\n' + gl.getShaderInfoLog(fs)); return false; }
+  prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)){ showErr('Link error:\n' + gl.getProgramInfoLog(prog)); return false; }
+  gl.useProgram(prog);
+  const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,3,-1,-1,3]), gl.STATIC_DRAW);
+  const a = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
+  return true;
+}
+const L = n => (n in locs) ? locs[n] : (locs[n] = gl.getUniformLocation(prog, n));
+const f1 = (n, v) => gl.uniform1f(L(n), v);
+const i1 = (n, v) => gl.uniform1i(L(n), v);
+const f2 = (n, a, b) => gl.uniform2f(L(n), a, b);
+const f3 = (n, a, b, c) => gl.uniform3f(L(n), a, b, c);
+const rad = d => d*Math.PI/180;
+
+function derive(s){
+  const W = s.width, D = s.form === 'ring' ? s.width : s.depth;
+  const H = s.height + (s.form === 'gable' ? s.roof : s.form === 'vault' ? W/2 : 0);
+  let r = Math.hypot(W/2, D/2, H) + Math.abs(s.shear)*H + 1;
+  if (s.copy) r = Math.max(r, Math.hypot(s.copyX, s.copyY, s.copyZ) + r*s.copyScale);
+  if (s.split) r += Math.abs(s.splitShift) + Math.abs(s.splitLift);
+  let stackH = 0;
+  if (s.stack > 1){ let sc = 1; for (let i = 1; i < s.stack; i++){ stackH += H*sc*s.stackGap; sc *= s.stackScale; } r += stackH + s.stack*Math.abs(s.stackShift); }
+  r += s.lift + s.sink + s.blend + 1;
+  if (s.sink > 0) r += s.pit;
+  const cy = Math.max(0.5, (H + stackH)*0.4 + s.lift - s.sink);
+  const field = Math.max(W, D)*0.62 + 5;
+  return {W, D, H, r, cy, field, stackH};
+}
+
+const cam = {yaw:0.72, pitch:0.58, dist:120};
+function camVectors(d){
+  const cp = Math.cos(cam.pitch), sp = Math.sin(cam.pitch);
+  const dir = [cp*Math.sin(cam.yaw), sp, cp*Math.cos(cam.yaw)];
+  const F = dir.map(v => -v);
+  let R = [F[1]*0 - F[2]*1, F[2]*0 - F[0]*0, F[0]*1 - F[1]*0];
+  const rl = Math.hypot(...R); R = R.map(v => v/rl);
+  const U = [R[1]*F[2]-R[2]*F[1], R[2]*F[0]-R[0]*F[2], R[0]*F[1]-R[1]*F[0]];
+  const T = [0, d.cy, 0];
+  return {F, R, U, T, dir};
+}
+
+function setUniforms(w, h){
+  const s = S, d = derive(s);
+  f2('uRes', w, h); i1('uMode', 0);
+  const {F, R, U, T, dir} = camVectors(d);
+  if (s.ortho){
+    const back = d.r*4 + 150;
+    f3('uCamPos', T[0]-F[0]*back, T[1]-F[1]*back, T[2]-F[2]*back);
+    f1('uZoom', cam.dist*0.555); f1('uOrtho', 1);
+  } else {
+    f3('uCamPos', T[0]+dir[0]*cam.dist, T[1]+dir[1]*cam.dist, T[2]+dir[2]*cam.dist);
+    f1('uZoom', 1); f1('uOrtho', 0);
+  }
+  f3('uCamF', ...F); f3('uCamR', ...R); f3('uCamU', ...U);
+  i1('uForm', FORM_ID[s.form]);
+  f3('uSize', s.width, s.height, d.D);
+  f1('uRoof', s.roof); f1('uRound', s.round); f1('uRing', s.ring); f1('uH', d.H);
+  f1('uTwist', rad(s.twist)); f1('uBend', s.bend*0.01); f1('uTaper', s.taper); f1('uShear', s.shear);
+  f1('uScoopOn', s.scoop?1:0); i1('uScoopShape', s.scoopShape==='cyl'?0:1);
+  f1('uScoopDepth', s.scoopDepth); f1('uScoopR', s.scoopR); f1('uScoopAng', rad(s.scoopAng)); f1('uScoopPos', s.scoopPos);
+  f1('uHoleOn', s.hole?1:0); i1('uHoleShape', {circle:0,square:1,diamond:2}[s.holeShape]); f1('uHoleSize', s.holeSize); f2('uHolePos', s.holeX, s.holeZ);
+  f1('uShellOn', s.shell?1:0); f1('uShell', s.shellT); f1('uTopCut', s.topCut/100); f1('uWindows', s.windows?1:0);
+  i1('uSection', {none:0,half:1,quarter:2}[s.section]); f1('uSectionAng', rad(s.sectionAng));
+  f1('uCopyOn', s.copy?1:0); f1('uCopyAng', rad(s.copyAng)); f1('uCopyScale', s.copyScale); f3('uCopyOff', s.copyX, s.copyY, s.copyZ);
+  f1('uSplitOn', s.split?1:0); f1('uSplitAng', rad(s.splitAng)); f1('uSplitShift', s.splitShift); f1('uSplitLift', s.splitLift);
+  i1('uStack', s.stack); f1('uStackScale', s.stackScale); f1('uStackRot', rad(s.stackRot)); f1('uStackGap', s.stackGap); f1('uStackShift', s.stackShift);
+  f1('uBlend', s.blend); f1('uSink', s.sink); f1('uPit', s.pit); f1('uLift', s.lift);
+  i1('uCols', {off:0,under:1,field:2}[s.cols]); f1('uColSp', s.colSp); f1('uColTop', s.form==='plate' ? s.height-0.4 : 0.3); f1('uField', d.field);
+  f1('uLines', s.lines?1:0); f1('uFigures', s.figures?1:0);
+  f1('uBound', d.r); f1('uBoundY', d.cy);
+  const deformed = s.twist||s.bend||s.taper||s.shear||s.blend;
+  f1('uStepK', deformed ? 0.6 : 0.9);
+  const a = Math.max(d.W, d.D)/2*1.1 + 2.5 + (s.sink>0 ? s.pit : 0) + (s.split ? Math.abs(s.splitShift) : 0);
+  f3('uFig0', a*0.92, 0, a*0.32); f3('uFig1', -a*0.28, 0, a*1.02); f3('uFig2', a*0.6, 0, a*0.8);
+}
+
+const BUDGET = {draft:2.2e5, normal:6e5, fine:1.5e6};
+function render(budget, ignoreDpr){
+  const r = canvas.getBoundingClientRect();
+  const cw = Math.max(1, r.width), ch = Math.max(1, r.height);
+  const dpr = window.devicePixelRatio || 1;
+  let sc = Math.sqrt(budget/(cw*ch));
+  if (!ignoreDpr) sc = Math.min(sc, dpr);
+  const W = Math.max(1, Math.round(cw*sc)), H = Math.max(1, Math.round(ch*sc));
+  if (canvas.width !== W || canvas.height !== H){ canvas.width = W; canvas.height = H; }
+  gl.viewport(0, 0, W, H);
+  setUniforms(W, H);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+// ───────────────────────────── loop & interaction ─────────────────────────────
+let dirty = true, hiPending = false, lastInteract = 0, lastT = performance.now(), autorot = false;
+function interacting(){ lastInteract = performance.now(); }
+function tick(now){
+  const dt = Math.min(0.1, (now - lastT)/1000); lastT = now;
+  const B = BUDGET[S.quality];
+  if (autorot){ cam.yaw += dt*0.3; render(B*0.45); hiPending = true; }
+  else if (dirty){
+    const moving = now - lastInteract < 180;
+    render(moving ? B*0.22 : B); hiPending = moving;
+  } else if (hiPending && now - lastInteract >= 180){ render(B); hiPending = false; }
+  dirty = false;
+  requestAnimationFrame(tick);
+}
+function onChange(sync){ syncPanel(); dirty = true; }
+function fit(){ cam.dist = derive(S).r*4.2; dirty = true; }
+
+const ptrs = new Map(); let pinch0 = 0, dist0 = 0;
+canvas.addEventListener('pointerdown', e => { canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if (ptrs.size === 2){ const [a,b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x-b.x, a.y-b.y); dist0 = cam.dist; } });
+canvas.addEventListener('pointermove', e => {
+  if (!ptrs.has(e.pointerId)) return;
+  const p = ptrs.get(e.pointerId); const dx = e.clientX - p.x, dy = e.clientY - p.y;
+  p.x = e.clientX; p.y = e.clientY;
+  if (ptrs.size === 1){
+    cam.yaw -= dx*0.008;
+    cam.pitch = Math.min(1.5, Math.max(0.04, cam.pitch + dy*0.006));
+  } else if (ptrs.size === 2){
+    const [a,b] = [...ptrs.values()]; const pd = Math.hypot(a.x-b.x, a.y-b.y);
+    if (pinch0 > 0) cam.dist = Math.min(600, Math.max(8, dist0*pinch0/pd));
+  }
+  interacting(); dirty = true;
+});
+const endPtr = e => { ptrs.delete(e.pointerId); pinch0 = 0; };
+canvas.addEventListener('pointerup', endPtr); canvas.addEventListener('pointercancel', endPtr);
+canvas.addEventListener('wheel', e => { e.preventDefault(); cam.dist = Math.min(600, Math.max(8, cam.dist*Math.exp(e.deltaY*0.0012))); interacting(); dirty = true; }, {passive:false});
+new ResizeObserver(() => { dirty = true; }).observe(canvas);
+
+$('bRot').onclick = () => { autorot = !autorot; $('bRot').classList.toggle('on', autorot); dirty = true; };
+$('bFit').onclick = fit;
+$('bReset').onclick = () => { S = {...DEFAULTS}; onChange(true); fit(); };
+$('bShot').onclick = () => {
+  render(2.6e6, true);
+  $('shotImg').src = canvas.toDataURL('image/png');
+  $('modal').classList.add('show'); dirty = true;
+};
+$('mClose').onclick = () => $('modal').classList.remove('show');
+$('modal').onclick = e => { if (e.target === $('modal')) $('modal').classList.remove('show'); };
+
+// ───────────────────────────── PNG saving
+let DL = null;
+function dataURLtoBlob(u){
+  const b = atob(u.split(',')[1]); const a = new Uint8Array(b.length);
+  for (let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i);
+  return new Blob([a], {type:'image/png'});
+}
+async function savePNG(dataURL, name, btn){
+  if (!DL) return;
+  const old = btn ? btn.textContent : '';
+  try { await DL.save({filename:name + '.png', data:dataURLtoBlob(dataURL)}); if (btn){ btn.textContent = 'Saved ✓'; setTimeout(() => btn.textContent = old, 1500); } }
+  catch(e){ if (btn && e && e.code !== 'declined'){ btn.textContent = 'Could not save'; setTimeout(() => btn.textContent = old, 1800); } }
+}
+function enableDL(){
+  if (!(window.claude && window.claude.use)) return false;
+  window.claude.use('downloads').then(d => { if (!d) return; DL = d;
+    document.querySelectorAll('.dl').forEach(b => b.hidden = false); drawBook(); }).catch(() => {});
+  return true;
+}
+function stamp(){ const d = new Date(); return d.toISOString().slice(0,16).replace(/[-:T]/g, ''); }
+function studyPNG(s, c){
+  const keepS = S, keepCam = {...cam};
+  S = s; if (c) Object.assign(cam, c);
+  render(2.6e6, true);
+  const url = canvas.toDataURL('image/png');
+  S = keepS; Object.assign(cam, keepCam); dirty = true;
+  return url;
+}
+
+// ───────────────────────────── plan & section drawings
+const DR = {mode:'plan', style:'poche', cut:1.5, secAng:0, secOff:0};
+let drawQueued = false;
+function lvl(v){ return (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2); }
+function renderDrawing(){
+  const d = derive(S);
+  const W = 1600, H = 1100;
+  canvas.width = W; canvas.height = H; gl.viewport(0, 0, W, H);
+  setUniforms(W, H);
+  const base = S.lift - S.sink;
+  const top = base + d.H + d.stackH + Math.abs(S.splitLift) + Math.abs(S.copyY);
+  const band = S.sink > 0 ? S.sink + 1.5 : 0.8;
+  let px, cx, cy;
+  if (DR.mode === 'plan'){ px = d.r*2.1/H; cx = 0; cy = 0; }
+  else {
+    const lo = Math.min(0, base) - band, hi = Math.max(top, 2);
+    px = Math.max(d.r*2.1/W, (hi - lo + 6)/H); cx = 0; cy = (lo + hi)/2;
+  }
+  const ext = Math.max(d.W, d.D)/2 + 2 + (S.sink > 0 ? S.pit : 0);
+  i1('uMode', DR.mode === 'plan' ? 1 : 2);
+  i1('uStyle', {poche:0, inverse:1, line:2}[DR.style]);
+  f1('uPx', px); f2('uDrawC', cx, cy);
+  f1('uCut', base + DR.cut); f1('uSecAng', rad(DR.secAng)); f1('uSecOff', DR.secOff); f1('uDepth', d.r*2);
+  f1('uYmin', base); f1('uYmax', top); f1('uBand', band); f2('uSecFig', ext + 1.5, -(ext + 4));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  const oc = document.createElement('canvas'); oc.width = W; oc.height = H;
+  const c = oc.getContext('2d');
+  c.drawImage(canvas, 0, 0);
+  const ink = DR.style === 'inverse' ? '#f4f4f4' : '#171717';
+  c.fillStyle = ink; c.strokeStyle = ink;
+  const toScr = (wx, wy) => [W/2 + (wx - cx)/px, H/2 - (wy - cy)/px];
+  c.font = '500 30px "IBM Plex Mono", ui-monospace, monospace';
+  c.fillText(DR.mode === 'plan' ? `PLAN  ${lvl(base + DR.cut)}` : 'SECTION A–A', 56, 76);
+  c.font = '400 19px "IBM Plex Mono", ui-monospace, monospace';
+  c.fillText($('tag').innerText.replace(/\n/, ' — ').toUpperCase(), 56, 108);
+  // scale bar
+  const target = 200*px; const nice = [1,2,5,10,20,50,100];
+  const len = nice.find(n => n >= target) || 100;
+  const bl = len/px, bx = 56, by = H - 64;
+  c.lineWidth = 2; c.strokeRect(bx, by, bl, 10);
+  for (let i = 0; i < 4; i += 2) c.fillRect(bx + i*bl/4, by, bl/4, 10);
+  c.font = '400 18px "IBM Plex Mono", ui-monospace, monospace';
+  c.fillText('0', bx - 4, by - 10); c.fillText(len + ' m', bx + bl - 18, by - 10);
+  if (DR.mode === 'plan'){
+    const a = rad(DR.secAng), t = [Math.cos(a), Math.sin(a)], nr = [-t[1], t[0]];
+    const L = d.r*1.0;
+    const P = u => { const x = t[0]*u + nr[0]*DR.secOff, z = t[1]*u + nr[1]*DR.secOff; return toScr(x, -z); };
+    const [x1, y1] = P(-L), [x2, y2] = P(L);
+    c.save(); c.setLineDash([30, 9, 4, 9]); c.lineWidth = 2;
+    c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); c.restore();
+    const sdx = nr[0], sdy = nr[1];
+    [[x1, y1], [x2, y2]].forEach(([x, y]) => {
+      c.beginPath(); c.moveTo(x + sdx*34, y + sdy*34); c.lineTo(x - sdy*12, y + sdx*12); c.lineTo(x + sdy*12, y - sdx*12); c.closePath(); c.fill();
+      c.font = '500 26px "IBM Plex Mono", ui-monospace, monospace';
+      c.fillText('A', x - sdx*30 - 9, y - sdy*30 + 9);
+    });
+  } else {
+    const [, gy] = toScr(0, 0);
+    c.font = '400 18px "IBM Plex Mono", ui-monospace, monospace';
+    c.fillText('±0.00', 56, gy - 10);
+    if (Math.abs(base) > 0.01){ const [, by2] = toScr(0, base); c.fillText(lvl(base), 56, by2 + 24);
+      c.save(); c.setLineDash([6, 6]); c.lineWidth = 1; c.beginPath(); c.moveTo(40, by2); c.lineTo(150, by2); c.stroke(); c.restore(); }
+  }
+  $('dImg').src = oc.toDataURL('image/png');
+  dirty = true;
+}
+function queueDrawing(){ if (drawQueued) return; drawQueued = true; requestAnimationFrame(() => { drawQueued = false; renderDrawing(); }); }
+function syncDrawingUI(){
+  const d = derive(S);
+  const totalH = d.H + d.stackH;
+  $('dMode').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === DR.mode));
+  $('dStyle').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === DR.style));
+  $('rCut').style.display = DR.mode === 'plan' ? '' : 'none';
+  $('rAng').style.display = $('rOff').style.display = DR.mode === 'section' ? '' : 'none';
+  const ic = $('iCut'); ic.min = 0.1; ic.max = Math.max(0.5, totalH - 0.1).toFixed(1);
+  DR.cut = Math.min(DR.cut, +ic.max); ic.value = DR.cut; $('vCut').textContent = DR.cut.toFixed(1) + ' m';
+  $('iAng').value = DR.secAng; $('vAng').textContent = DR.secAng + '°';
+  const io = $('iOff'); const lim = Math.ceil(Math.max(d.W, d.D)/2 + 2); io.min = -lim; io.max = lim;
+  DR.secOff = Math.max(-lim, Math.min(lim, DR.secOff)); io.value = DR.secOff; $('vOff').textContent = DR.secOff.toFixed(1) + ' m';
+}
+function openDrawing(mode){
+  DR.mode = mode;
+  const d = derive(S);
+  DR.cut = Math.min(1.5, (d.H + d.stackH)*0.4);
+  if (S.form === 'plate') DR.cut = Math.max(0.1, S.height - 0.4);
+  syncDrawingUI(); $('dmodal').classList.add('show'); renderDrawing();
+}
+$('bPlan').onclick = () => openDrawing('plan');
+$('bSec').onclick = () => openDrawing('section');
+$('dMode').querySelectorAll('button').forEach(b => b.onclick = () => { DR.mode = b.dataset.v; syncDrawingUI(); queueDrawing(); });
+$('dStyle').querySelectorAll('button').forEach(b => b.onclick = () => { DR.style = b.dataset.v; syncDrawingUI(); queueDrawing(); });
+$('iCut').addEventListener('input', e => { DR.cut = +e.target.value; $('vCut').textContent = DR.cut.toFixed(1) + ' m'; queueDrawing(); });
+$('iAng').addEventListener('input', e => { DR.secAng = +e.target.value; $('vAng').textContent = DR.secAng + '°'; queueDrawing(); });
+$('iOff').addEventListener('input', e => { DR.secOff = +e.target.value; $('vOff').textContent = DR.secOff.toFixed(1) + ' m'; queueDrawing(); });
+$('dSave').onclick = () => savePNG($('dImg').src, `concept-sculpt-${DR.mode}-${stamp()}`, $('dSave'));
+$('mSave').onclick = () => savePNG($('shotImg').src, `concept-sculpt-view-${stamp()}`, $('mSave'));
+$('dClose').onclick = () => $('dmodal').classList.remove('show');
+$('dmodal').onclick = e => { if (e.target === $('dmodal')) $('dmodal').classList.remove('show'); };
+
+// ───────────────────────────── inspire ─────────────────────────────
+const rnd = (a, b) => a + Math.random()*(b - a);
+const r1 = (a, b) => Math.round(rnd(a, b)*2)/2;
+const pick = a => a[Math.floor(Math.random()*a.length)];
+const chance = p => Math.random() < p;
+function inspire(){
+  const s = {...DEFAULTS, scoop:false, windows:false, ortho:S.ortho, lines:S.lines, figures:S.figures, quality:S.quality};
+  s.form = pick(['box','gable','gable','gable','vault','cylinder','sphere','pyramid','ring','plate','wedge']);
+  s.width = r1(6, 22); s.depth = r1(6, 32); s.height = r1(3, 9); s.roof = r1(2, 7);
+  if (s.form === 'ring'){ s.width = r1(10, 22); s.ring = r1(2.5, 6); s.height = r1(2.5, 7); }
+  if (s.form === 'sphere'){ s.height = r1(6, 16); }
+  if (['box','cylinder'].includes(s.form) && chance(0.3)) s.height = r1(14, 32);
+  const H = s.height + (s.form === 'gable' ? s.roof : s.form === 'vault' ? s.width/2 : 0);
+  const M = Math.max(s.width, s.depth);
+  const ops = ['scoop','scoop','hole','shell','copy','copy','split','stack','sink','lift','twist','taper','bend','lean','section'];
+  const n = 1 + Math.floor(Math.random()*3);
+  const chosen = new Set();
+  while (chosen.size < n) chosen.add(pick(ops));
+  for (const op of chosen){
+    if (op === 'scoop'){ s.scoop = true; s.scoopShape = chance(0.65) ? 'cyl' : 'sph';
+      s.scoopDepth = +(H*rnd(0.4, 0.95)).toFixed(1); s.scoopR = r1(M*0.3, M*0.8); s.scoopAng = pick([0, 90, Math.round(rnd(0,180))]); s.scoopPos = +(rnd(-0.25,0.25)*M).toFixed(1); }
+    if (op === 'hole'){ s.hole = true; s.holeShape = pick(['circle','square','diamond']); s.holeSize = +rnd(1.2, Math.min(s.width, s.depth)*0.32).toFixed(1);
+      s.holeX = +rnd(-s.width*0.2, s.width*0.2).toFixed(1); s.holeZ = +rnd(-s.depth*0.2, s.depth*0.2).toFixed(1); }
+    if (op === 'shell'){ s.shell = true; s.shellT = +rnd(0.3, 0.8).toFixed(2);
+      if (chance(0.5)) s.topCut = Math.round(rnd(50, 85)); else s.section = pick(['half','quarter']); s.sectionAng = Math.round(rnd(-60,60)); }
+    if (op === 'section'){ s.section = pick(['half','quarter']); s.sectionAng = Math.round(rnd(-60,60)); if (chance(0.6)) s.shell = true; }
+    if (op === 'copy'){ s.copy = true; s.copyAng = pick([90, 90, 45, Math.round(rnd(15,75))]); s.copyX = +rnd(-M*0.3, M*0.3).toFixed(1); s.copyZ = +rnd(-M*0.3, M*0.3).toFixed(1);
+      s.copyScale = chance(0.5) ? 1 : +rnd(0.6, 1).toFixed(2); if (chance(0.3)) s.blend = +rnd(0.8, 3).toFixed(1); if (chance(0.25)) s.copyY = +rnd(1, H*0.6).toFixed(1); }
+    if (op === 'split'){ s.split = true; s.splitAng = Math.round(rnd(0,180)); s.splitShift = +(rnd(1.5, 6)*pick([-1,1])).toFixed(1); if (chance(0.35)) s.splitLift = +rnd(-2, 3).toFixed(1); }
+    if (op === 'stack'){ s.stack = 2 + Math.floor(Math.random()*4); s.stackScale = +rnd(0.65, 0.95).toFixed(2); s.stackRot = Math.round(rnd(0, 35))*pick([-1,1]);
+      s.stackGap = pick([1, 1, +rnd(0.5, 0.9).toFixed(2)]); if (chance(0.4)) s.stackShift = +rnd(-3, 3).toFixed(1); }
+    if (op === 'sink'){ s.sink = +(H*rnd(0.3, 0.85)).toFixed(1); if (chance(0.6)) s.pit = +rnd(1, 4).toFixed(1); }
+    if (op === 'lift'){ if (chance(0.5)) s.form = 'plate'; s.lift = s.form === 'plate' ? 0 : +rnd(2.5, 5).toFixed(1); s.cols = pick(['under','field']); s.colSp = +rnd(3, 6).toFixed(1); if (s.form==='plate') s.height = r1(4, 8); }
+    if (op === 'twist'){ s.twist = Math.round(rnd(25, 160))*pick([-1,1]); if (s.height < 10) s.height = r1(10, 26); }
+    if (op === 'taper'){ s.taper = +rnd(0.2, 0.7).toFixed(2); }
+    if (op === 'bend'){ s.bend = +(rnd(0.8, 4)*pick([-1,1])).toFixed(1); }
+    if (op === 'lean'){ s.shear = +(rnd(0.15, 0.6)*pick([-1,1])).toFixed(2); }
+  }
+  if (['box','gable','vault','cylinder','plate'].includes(s.form) && chance(0.3) && s.form !== 'plate') s.windows = true;
+  S = s; onChange(true); fit();
+}
+$('bInspire').onclick = inspire;
+
+// ───────────────────────────── sketchbook ─────────────────────────────
+const BOOK_KEY = 'concept-sculpt-book-v1';
+function loadBook(){ try { return JSON.parse(localStorage.getItem(BOOK_KEY) || '[]'); } catch(e){ return []; } }
+function saveBook(b){ try { localStorage.setItem(BOOK_KEY, JSON.stringify(b)); return true; } catch(e){ return false; } }
+function drawBook(){
+  const b = loadBook(), el = $('book'); el.innerHTML = '';
+  $('bookCnt').textContent = b.length ? b.length : '';
+  if (!b.length){ el.innerHTML = '<p class="note" style="grid-column:1/-1">Nothing saved yet. Use the bookmark button on the viewport.</p>'; return; }
+  b.forEach((it, i) => {
+    const t = document.createElement('div'); t.className = 'thumb';
+    t.innerHTML = `<img src="${it.img}" alt="Saved study"><button class="x" title="Remove">×</button>${DL ? '<button class="d" title="Save PNG">↓</button>' : ''}`;
+    t.onclick = e => { if (e.target.classList.contains('x')){ b.splice(i,1); saveBook(b); drawBook(); return; }
+      if (e.target.classList.contains('d')){ savePNG(studyPNG({...DEFAULTS, ...it.s}, it.cam), `concept-sculpt-study-${i+1}-${stamp()}`); return; }
+      S = {...DEFAULTS, ...it.s}; if (it.cam) Object.assign(cam, it.cam); onChange(true); };
+    el.appendChild(t);
+  });
+}
+$('bSave').onclick = () => {
+  render(BUDGET[S.quality]);
+  const tc = document.createElement('canvas'); const sz = 220; tc.width = sz; tc.height = sz;
+  const cx = tc.getContext('2d'); const w = canvas.width, h = canvas.height, m = Math.min(w, h);
+  cx.drawImage(canvas, (w-m)/2, (h-m)/2, m, m, 0, 0, sz, sz);
+  const b = loadBook(); b.unshift({s:{...S}, cam:{...cam}, img:tc.toDataURL('image/jpeg', 0.75)});
+  if (b.length > 30) b.length = 30;
+  if (!saveBook(b)){ $('bookCnt').textContent = 'storage unavailable'; return; }
+  drawBook(); $('bookSec').open = true;
+  const btn = $('bSave'); btn.classList.add('on'); setTimeout(() => btn.classList.remove('on'), 500);
+};
+
+// ───────────────────────────── go ─────────────────────────────
+buildPanel();
+if (initGL()){ syncPanel(); fit(); drawBook(); requestAnimationFrame(tick); }
+if (!enableDL()) setTimeout(enableDL, 1500);
+</script>
+</body>
+</html>
