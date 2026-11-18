@@ -41,7 +41,7 @@
   .btn:hover{border-color:#bdbdb8}
   .btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
   .btn.primary:hover{background:#333}
-  .presets{display:flex;flex-wrap:wrap;gap:6px;padding:12px 20px 14px;border-bottom:1px solid var(--line)}
+  .presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
   .presets::-webkit-scrollbar{display:none}
   .chip{flex:none;font:500 11.5px var(--sans);padding:6px 10px;border-radius:99px;border:1px solid var(--line);background:#fff;cursor:pointer;white-space:nowrap}
   .chip:hover{border-color:#bdbdb8}
@@ -52,6 +52,7 @@
   summary::after{content:'+';font:400 15px var(--mono);color:var(--mute);margin-left:10px}
   details[open] summary::after{content:'–'}
   .body{padding:2px 20px 16px}
+  .flab{font:500 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin:2px 0 7px}
   .forms{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:14px}
   .fbtn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 2px 6px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;font:500 9.5px var(--mono);color:#555;letter-spacing:.02em}
   .fbtn svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.2;stroke-linejoin:round;stroke-linecap:round}
@@ -121,7 +122,6 @@
       <button class="btn" id="bSec">Section</button>
     </div>
   </header>
-  <div class="presets" id="presets"></div>
   <div id="controls"></div>
   <details id="bookSec">
     <summary>Sketchbook <span class="cnt" id="bookCnt"></span></summary>
@@ -231,6 +231,28 @@ float base(vec3 p){
     float b = sdBox(p - vec3(0.0,Hh*0.5,0.0), vec3(W,Hh*0.5,D), 0.0);
     float pl = dot(p.xy - vec2(-W, 0.0), normalize(vec2(-Hh, 2.0*W)));
     return max(b, pl);
+  }
+  if (uForm == 9){
+    float m = min(W,D);
+    float r = length(p.xz/vec2(W,D))*m;
+    return max(dot(vec2(r, p.y) - vec2(m, 0.0), normalize(vec2(Hh, m))), -p.y);
+  }
+  if (uForm == 10){
+    float t = min(Hh*0.5, W*0.48);
+    return length(vec2(length(p.xz) - (W - t), p.y - t)) - t;
+  }
+  if (uForm == 11){
+    float tr = max(dot(vec2(abs(p.x), p.y) - vec2(0.0, Hh), normalize(vec2(Hh, W))), -p.y);
+    return extrude(tr, p.z, D);
+  }
+  if (uForm == 12){
+    vec3 r3 = vec3(W, Hh, D);
+    float k0 = length(p/r3); float k1 = length(p/(r3*r3));
+    return max(k0*(k0-1.0)/k1, -p.y);
+  }
+  if (uForm == 13){
+    vec3 r3 = vec3(W, Hh*0.5, D); vec3 q = abs(p - vec3(0.0, Hh*0.5, 0.0));
+    return (dot(q/r3, vec3(1.0)) - 1.0)*min(min(W, Hh*0.5), D)*0.577;
   }
   float b = sdBox2(vec2(p.x, p.y - Hh*0.5), vec2(W, Hh*0.5));
   float c = length(vec2(p.x, p.y - Hh)) - W;
@@ -489,7 +511,19 @@ const FORMS = [
   ['plate','Plate','M2 11 L12 7 L22 11 L12 15 Z M2 11 V12.5 L12 16.5 L22 12.5 V11 M6 14 V20 M18 14 V20 M12 16.5 V22'],
   ['wedge','Wedge','M3 18 L14 21 L21 17 L21 5 Z M14 21 L21 5'],
 ];
-const FORM_ID = {box:0,gable:1,cylinder:2,sphere:3,pyramid:4,ring:5,plate:6,wedge:7,vault:8};
+const BASIC = [
+  ['cube','Cube','M4 8 L12 4 L20 8 L20 16 L12 20 L4 16 Z M4 8 L12 12 L20 8 M12 12 L12 20', {width:12, depth:12, height:12}],
+  ['ball','Sphere','M4 12 a8 8 0 1 0 16 0 a8 8 0 1 0 -16 0 M4 12 a8 3 0 0 0 16 0', {width:14, depth:14, height:14}],
+  ['column','Cylinder','M5 7 a7 3 0 1 0 14 0 a7 3 0 1 0 -14 0 M5 7 V17 a7 3 0 0 0 14 0 V7', {width:12, depth:12, height:14}],
+  ['cone','Cone','M12 3 L19 17 M12 3 L5 17 M5 17 a7 3 0 0 0 14 0', {width:14, depth:14, height:16}],
+  ['pyra','Pyramid','M12 3 L21 16 L12 21 L3 16 Z M12 3 L12 21', {width:14, depth:14, height:12}],
+  ['prism','Prism','M3 18 L8 6 L13 18 Z M8 6 L19 3 L21 15 L13 18', {width:12, depth:20, height:10}],
+  ['dome','Dome','M3 17 a9 9 0 0 1 18 0 Z M3 17 a9 3 0 0 0 18 0', {width:14, depth:14, height:8}],
+  ['torus','Torus','M3 12 a9 5 0 1 0 18 0 a9 5 0 1 0 -18 0 M8 12 a4 1.8 0 1 0 8 0 a4 1.8 0 1 0 -8 0', {width:14, depth:14, height:5}],
+  ['octa','Octahedron','M12 2 L20 12 L12 22 L4 12 Z M4 12 L12 15 L20 12 M12 2 L12 15', {width:12, depth:12, height:16}],
+];
+const ALL_FORMS = () => BASIC.concat(FORMS);
+const FORM_ID = {cube:0, ball:3, column:2, cone:9, pyra:4, prism:11, dome:12, torus:10, octa:13, box:0,gable:1,cylinder:2,sphere:3,pyramid:4,ring:5,plate:6,wedge:7,vault:8};
 
 const DEFAULTS = {
   form:'gable', width:10, depth:26, height:5, roof:4, round:0, ring:4,
@@ -524,13 +558,15 @@ const PRESETS = [
 const isForm = (...f) => s => f.includes(s.form);
 const SECTIONS = [
   {t:'Base form', open:true, items:[
+    {type:'basic'},
     {type:'forms'},
+    {type:'presets'},
     {k:'width', l:'Width', min:2, max:60, step:0.5, u:'m'},
-    {k:'depth', l:'Depth', min:2, max:60, step:0.5, u:'m', show:s=>s.form!=='ring'},
+    {k:'depth', l:'Depth', min:2, max:60, step:0.5, u:'m', show:s=>s.form!=='ring' && s.form!=='torus'},
     {k:'height', l:'Height', min:1, max:60, step:0.5, u:'m'},
     {k:'roof', l:'Roof rise', min:0.5, max:20, step:0.5, u:'m', show:isForm('gable')},
     {k:'ring', l:'Ring band', min:0.5, max:15, step:0.5, u:'m', show:isForm('ring')},
-    {k:'round', l:'Edge rounding', min:0, max:5, step:0.1, u:'m', show:isForm('box','plate')},
+    {k:'round', l:'Edge rounding', min:0, max:5, step:0.1, u:'m', show:isForm('box','cube','plate')},
   ]},
   {t:'Deform', items:[
     {k:'twist', l:'Twist', min:-360, max:360, step:1, u:'°'},
@@ -611,7 +647,21 @@ function buildPanel(){
     const body = document.createElement('div'); body.className = 'body';
     sec.items.forEach(it => {
       let el;
-      if (it.type === 'forms'){
+      if (it.type === 'presets'){
+        el = document.createElement('div');
+        el.innerHTML = '<div class="flab">Architectural presets</div><div class="presets" id="presets"></div>';
+      } else if (it.type === 'basic'){
+        el = document.createElement('div');
+        el.innerHTML = '<div class="flab">Basic forms</div><div class="forms"></div><div class="flab">Architectural basic forms</div>';
+        const g = el.querySelector('.forms');
+        BASIC.forEach(([id, name, path, dims]) => {
+          const b = document.createElement('button'); b.className = 'fbtn'; b.dataset.form = id;
+          b.innerHTML = `<svg viewBox="0 0 24 24"><path d="${path}"/></svg>${name}`;
+          b.onclick = () => { Object.assign(S, dims); S.form = id; S.scoop = false; S.windows = false; onChange(true); fit(); };
+          g.appendChild(b);
+        });
+        it.sync = () => g.querySelectorAll('.fbtn').forEach(b => b.classList.toggle('on', b.dataset.form === S.form));
+      } else if (it.type === 'forms'){
         el = document.createElement('div'); el.className = 'forms';
         FORMS.forEach(([id, name, path]) => {
           const b = document.createElement('button'); b.className = 'fbtn'; b.dataset.form = id;
@@ -667,7 +717,7 @@ function syncPanel(){
   $('tag').innerHTML = recipe();
 }
 function recipe(){
-  const name = FORMS.find(f => f[0] === S.form)[1];
+  const name = ALL_FORMS().find(f => f[0] === S.form)[1];
   const ops = [];
   if (Math.abs(S.twist) > 0) ops.push('twist');
   if (Math.abs(S.bend) > 0) ops.push('bend');
@@ -717,7 +767,7 @@ const f3 = (n, a, b, c) => gl.uniform3f(L(n), a, b, c);
 const rad = d => d*Math.PI/180;
 
 function derive(s){
-  const W = s.width, D = s.form === 'ring' ? s.width : s.depth;
+  const W = s.width, D = (s.form === 'ring' || s.form === 'torus') ? s.width : s.depth;
   const H = s.height + (s.form === 'gable' ? s.roof : s.form === 'vault' ? W/2 : 0);
   let r = Math.hypot(W/2, D/2, H) + Math.abs(s.shear)*H + 1;
   if (s.copy) r = Math.max(r, Math.hypot(s.copyX, s.copyY, s.copyZ) + r*s.copyScale);
